@@ -40,9 +40,7 @@ output application/json
 		<set-variable value="#[payload.contentVersionId[0]]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
 		<salesforce:query doc:name="Query" doc:id="2d58c189-66c2-42ec-8cde-c384a719cc6a" config-ref="Salesforce_Config">
 			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
-			<salesforce:parameters><![CDATA[#[output application/java
----
-{
+			<salesforce:parameters><![CDATA[#[{
 	insertedFileId : vars.contentversionId
 }]]]></salesforce:parameters>
 		</salesforce:query>
@@ -52,7 +50,7 @@ output application/json
 output application/json
 ---
 {
-	imageUrl: payload.DistributionPublicUr[0]
+	imageUrl: payload.DistributionPublicUrl[0]
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
