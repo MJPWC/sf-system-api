@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="accd5413-d35c-4d1e-8ab3-6911f093e33a" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="2d19537c-91fe-4a74-8828-c7e7ccbbd71f" >
+		<salesforce:basic-connection username="praharsh.trailhead@gmail.com" password="Password@14" securityToken="Lh9GfBaZiKin6F070YcorLL8C"/>
+	</salesforce:sfdc-config>
+	<flow name="sf-system-sapiFlow" doc:id="f7ec0454-05ae-4052-b7b3-20ad8fdc63f4" >
+		<http:listener doc:name="Listener" doc:id="6e321d21-8297-4588-91ca-acf1fcf9480b" config-ref="HTTP_Listener_config" path="/api/imageGeneration" allowedMethods="POST" outputMimeType="application/json"/>
+		<logger level="INFO" doc:name="Logger" doc:id="dfec68fd-4a4f-4c22-a5d5-b09441479ea5" message='#["start object creation into salesforce"]'/>
+		<ee:transform doc:name="Transform Message" doc:id="5f1e2867-091a-43e2-907f-49f3f7182fdc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create doc:id="2bb610f8-e8b6-456c-9f74-e662576141ed" config-ref="Salesforce_Config" type="ContentVersion"/>
+		<ee:transform doc:name="Transform Message" doc:id="5faf2193-5a51-4c0c-b73f-809b8e7a7f20" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+(payload.items filter (item) -> item.successful) map (item) -> {
+  contentVersionId: item.id
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="fb1d51a4-f58d-485b-bf36-654817cf8515" message="contentVersionId from SF: #[payload]" />
+		<set-variable value="#[payload.contentVersionId[0]]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
+		<salesforce:query doc:name="Query" doc:id="2d58c189-66c2-42ec-8cde-c384a719cc6a" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
+			<salesforce:parameters><![CDATA[#[output application/java
+---
+{
+	insertedFileId : vars.contentversionId
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="2a69992f-554f-4200-aaf7-7c87866a01fc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	imageUrl: payload.DistributionPublicUr[0]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="c25d2a6e-2d80-436a-abde-f41ca328324c" message="Response from the Query component. #[payload]"/>
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a1c0721d-44bc-41df-87a6-097d2dc2efb4" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="61722124-8727-4f86-b1bc-027446c458cd" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+		
+	</flow>
+</mule>
