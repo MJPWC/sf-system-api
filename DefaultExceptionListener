@@ -1,0 +1,38 @@
+<!-- Add validation before Salesforce query -->
+<choice doc:name="Validate ContentVersionID" doc:id="NEW-ELEMENT-ID-1">
+    <!-- REPLACE doc:id with UUID -->
+    <when expression="#[sizeOf(payload.contentVersionId default []) > 0 and payload.contentVersionId[0] != null]">
+        <salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+    <salesforce:salesforce-query><![CDATA[
+    SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId'
+    ]]></salesforce:salesforce-query>
+    <salesforce:parameters><![CDATA[
+    #[{
+    insertedFileId: (payload.contentVersionId default [])[0] default ""
+    }]
+    ]]></salesforce:parameters>
+    </salesforce:query>
+    </when>
+    <otherwise>
+        <ee:transform doc:name="Build Error Response" doc:id="NEW-ELEMENT-ID-2">
+            <!-- REPLACE doc:id with UUID -->
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "error",
+    errorType: "VALIDATION:MISSING_CONTENT_VERSION_ID",
+    message: "ContentVersionID is required but was not provided or is null",
+    correlationId: correlationId,
+    timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="WARN" message="#['[' ++ correlationId ++ '] ContentVersionID missing or null - cannot query ContentDistribution']" doc:name="Log Validation Error" doc:id="NEW-ELEMENT-ID-3" />
+        <!-- REPLACE doc:id with UUID -->
+    </otherwise>
+</choice>
