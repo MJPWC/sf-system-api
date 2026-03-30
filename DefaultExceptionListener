@@ -1,0 +1,6 @@
+<!-- Replace the existing parameters block with the null‑safe version -->
+    <salesforce:parameters><![CDATA[
+    #[{
+    insertedFileId : (payload.contentVersionId default [])[0] default ""
+}]]
+</salesforce:parameters>
