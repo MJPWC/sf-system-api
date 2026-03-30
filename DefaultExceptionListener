@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+
+    <!-- ==================== Flow Definition ==================== -->
+    <flow name="sf-system-sapiFlow2" doc:id="FLOW-UUID-PLACEHOLDER">
+        <!-- (Other processors such as listeners, transformers, etc.) -->
+        
+        <!-- Salesforce Query to retrieve ContentDistribution records -->
+        <salesforce:query doc:name="Query"
+                        doc:id="0971d651-8d62-4227-a465-459237d002e6"
+                        config-ref="Salesforce_Config">
+    <salesforce:salesforce-query><![CDATA[
+                SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl
+                FROM ContentDistribution
+                WHERE ContentVersionID = ':insertedFileId'
+    ]]></salesforce:salesforce-query>
+    <salesforce:parameters><![CDATA[
+    #[{
+                    insertedFileId : (payload.contentVersionId default [])[0] default ""
+    }]
+    ]]></salesforce:parameters>
+    </salesforce:query>
+
+        <!-- (Subsequent processors, error handling, etc.) -->
+    </flow>
+
+    <!-- ==================== Global Configurations ==================== -->
+    <salesforce:config name="Salesforce_Config"
+                      doc:name="Salesforce Config"
+                      doc:id="SF-CONFIG-UUID-PLACEHOLDER">
+        <!-- Connection details should be supplied via property placeholders -->
+        <salesforce:oauth-username-password-connection
+            username="${salesforce.username}"
+            password="${salesforce.password}"
+            clientId="${salesforce.clientId}"
+            clientSecret="${salesforce.clientSecret}"
+            securityToken="${salesforce.securityToken}"/>
+    </salesforce:config>
+
+    <!-- (Other global configurations such as HTTP listeners, etc.) -->
+
+</mule>
