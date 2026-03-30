@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+
+<flow name="sf-system-sapiFlow2" doc:id="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+  <http:listener doc:name="Listener" doc:id="1234abcd-5678-90ef-ghij-klmnopqrstuv" config-ref="HTTP_Listener_config" path="/content"/>
+  <ee:transform doc:name="Transform Message" doc:id="abcd1234-ef56-7890-1234-567890abcdef">
+  <ee:message>
+    <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+  <choice doc:name="Choice" doc:id="NEW-ELEMENT-ID"><!-- REPLACE doc:id with UUID -->
+  <when expression="#[sizeOf(payload.contentVersionId default []) &gt; 0 and ((payload.contentVersionId default [])[0] default '') != '']">
+    <salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+    <salesforce:salesforce-query><![CDATA[
+    SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId'
+    ]]></salesforce:salesforce-query>
+    <salesforce:parameters><![CDATA[
+    #[{
+insertedFileId : ((payload.contentVersionId default [])[0]) default ""
+    }]
+    ]]></salesforce:parameters>
+    </salesforce:query>
+  </when>
+  <otherwise>
+    <ee:transform doc:name="Return Empty Result" doc:id="NEW-ELEMENT-ID-2"><!-- REPLACE doc:id with UUID -->
+    <ee:message>
+      <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+status: "error",
+message: "ContentVersionID is required but was not provided or is empty",
+correlationId: correlationId,
+timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+    </ee:message>
+    <ee:variables>
+      <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+    </ee:variables>
+    </ee:transform>
+  </otherwise>
+  </choice>
+  <logger level="DEBUG" doc:name="Logger" doc:id="logger-debug-id" message="#['Query result: ' ++ write(payload, 'application/json')]"/>
+</flow>
+
+</mule>
