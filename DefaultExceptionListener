@@ -1,0 +1,1 @@
+insertedFileId : payload.contentVersionId[0] default ""
