@@ -1,0 +1,40 @@
+<!-- CORRECTED FLOW SEGMENT - Integrate into your complete sf-system-sapi.xml -->
+<flow name="sf-system-sapiFlow2" doc:id="PRESERVE-ORIGINAL-DOC-ID">
+    <!-- Preserve all existing processors before the Salesforce query -->
+    
+    <!-- Add validation before Salesforce query -->
+    <choice doc:name="Check ContentVersionID Exists" doc:id="NEW-ELEMENT-ID-001">
+        <!-- REPLACE doc:id with UUID -->
+        <when expression="#[sizeOf(payload.contentVersionId default []) &gt; 0 and payload.contentVersionId[0] != null and payload.contentVersionId[0] != '']">
+            <salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+    <salesforce:salesforce-query><![CDATA[
+    SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId'
+    ]]></salesforce:salesforce-query>
+    <salesforce:parameters><![CDATA[
+    #[{
+    insertedFileId: (payload.contentVersionId default [])[0] default ""
+    }]
+    ]]></salesforce:parameters>
+    </salesforce:query>
+        </when>
+        <otherwise>
+            <logger level="WARN" doc:name="Log Missing ContentVersionID" doc:id="NEW-ELEMENT-ID-002" message="#['[' ++ correlationId ++ '] ContentVersionID is missing or null - skipping Salesforce query']"/>
+            <!-- REPLACE doc:id with UUID -->
+            <ee:transform doc:name="Return Empty Result" doc:id="NEW-ELEMENT-ID-003">
+                <!-- REPLACE doc:id with UUID -->
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "warning",
+    message: "No ContentVersionID provided - query skipped",
+    results: []
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+        </otherwise>
+    </choice>
+    
+    <!-- Preserve all existing processors after the Salesforce query -->
+</flow>
