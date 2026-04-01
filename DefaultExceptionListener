@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="8c4c0c0e-4c4c-4c4c-8c4c-0c0e4c4c4c4c">
+  <http:listener-connection host="0.0.0.0" port="8081" />
+</http:listener-config>
+<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+  <salesforce:basic-connection username="${sfdc.username}" password="${sfdc.password}" securityToken="${sfdc.securityToken}" />
+</salesforce:sfdc-config>
+<flow name="sf-system-sapiFlow" doc:id="1a2b3c4d-5e6f-7890-abcd-ef1234567890">
+  <http:listener doc:name="Listener" doc:id="2b3c4d5e-6f78-90ab-cdef-1234567890ab" config-ref="HTTP_Listener_config" path="/api/imageGeneration"/>
+  <ee:transform doc:name="Transform Message" doc:id="3c4d5e6f-7890-abcd-ef12-34567890abcd">
+  <ee:message>
+    <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+Title: payload.title default "Untitled",
+PathOnClient: payload.fileName default "diagram.png",
+VersionData: payload.base64Content default ""
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+  <salesforce:create type="ContentVersion" doc:name="Create" doc:id="4d5e6f78-90ab-cdef-1234-567890abcdef" config-ref="Salesforce_Config"/>
+  <ee:transform doc:name="Transform Message" doc:id="5e6f7890-abcd-ef12-3456-7890abcdef12">
+  <ee:message>
+    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+contentVersionId: (payload.items default []) map ((item, index) -> item.id)
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+</flow>
+<flow name="sf-system-sapiFlow2" doc:id="6f789012-3456-7890-abcd-ef1234567890">
+  <http:listener doc:name="Listener" doc:id="7890abcd-ef12-3456-7890-abcdef123456" config-ref="HTTP_Listener_config" path="/api/getImageUrl"/>
+  <salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+    <salesforce:salesforce-query><![CDATA[
+SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = :insertedFileId
+    ]]></salesforce:salesforce-query>
+    <salesforce:parameters><![CDATA[
+    #[{
+insertedFileId : (payload.contentVersionId default [])[0] default ""
+    }]
+    ]]></salesforce:parameters>
+    </salesforce:query>
+  <ee:transform doc:name="Transform Message" doc:id="890abcde-f123-4567-890a-bcdef1234567">
+  <ee:message>
+    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+imageUrl: (payload.DistributionPublicUrl default [])[0] default ""
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+</flow>
+</mule>
