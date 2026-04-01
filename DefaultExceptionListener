@@ -1,0 +1,3 @@
+<logger level="INFO"
+      message="#['[Validation] insertedFileId = ' ++ (payload.contentVersionId default [])[0] default 'EMPTY']"
+      doc:name="Log insertedFileId" doc:id="NEW-LOGGER-ID"/>
