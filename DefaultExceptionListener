@@ -1,0 +1,16 @@
+<!-- Add this BEFORE the salesforce:query component -->
+<validation:is-not-empty-collection
+    doc:name="Validate ContentVersionId exists"
+    doc:id="NEW-ELEMENT-ID"
+    values="#[payload.contentVersionId default []]"
+    message="ContentVersionId is required but was not provided or is empty">
+</validation:is-not-empty-collection>
+
+<salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+    <salesforce:salesforce-query><![CDATA[
+    SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId'
+    ]]></salesforce:salesforce-query>
+    <salesforce:parameters><![CDATA[#[{
+        insertedFileId: (payload.contentVersionId default [])[0] default ""
+    }]]]></salesforce:parameters>
+    </salesforce:query>
