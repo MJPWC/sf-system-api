@@ -30,18 +30,20 @@ payload]]></ee:set-payload>
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 ---
-(payload.items filter (item) -> item.successful) map (item) -> {
-  contentVersionId: item.id
+((payload.items default []) filter (item) -> (item.successful default false)) map (item) -> {
+contentVersionId: item.id default ""
 }
 ]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="fb1d51a4-f58d-485b-bf36-654817cf8515" message="contentVersionId from SF: #[payload]" />
-		<set-variable value="#[payload.contentVersionId[0]]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
+		<set-variable value="#[(payload.contentVersionId default [""])[0]]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
+		<logger level="INFO" doc:name="Logger" doc:id="NEW-ELEMENT-01" message="#['ContentVersionID variable value: ' ++ (vars.contentversionId default 'null')]"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
 		<salesforce:query doc:name="Query" doc:id="2d58c189-66c2-42ec-8cde-c384a719cc6a" config-ref="Salesforce_Config">
-			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
+			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = :insertedFileId]]></salesforce:salesforce-query>
 			<salesforce:parameters><![CDATA[#[{
-	insertedFileId : vars.contentversionId
+	insertedFileId : vars.contentversionId default ""
 }]]]></salesforce:parameters>
 		</salesforce:query>
 		<ee:transform doc:name="Transform Message" doc:id="2a69992f-554f-4200-aaf7-7c87866a01fc" >
@@ -50,7 +52,7 @@ output application/json
 output application/json
 ---
 {
-	imageUrl: payload.DistributionPublicUrl[0]
+	imageUrl: ((payload.DistributionPublicUrl default [""])[0])
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
