@@ -30,18 +30,18 @@ payload]]></ee:set-payload>
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 ---
-(payload.items filter (item) -> item.successful) map (item) -> {
-  contentVersionId: item.id
+(payload.items default [] filter (item) -> item.successful default false) map (item) -> {
+contentVersionId: item.id default ""
 }
 ]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="fb1d51a4-f58d-485b-bf36-654817cf8515" message="contentVersionId from SF: #[payload]" />
-		<set-variable value="#[payload.contentVersionId[0]]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
+		<set-variable value="#[(payload.contentVersionId default [])[0] default null]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
 		<salesforce:query doc:name="Query" doc:id="2d58c189-66c2-42ec-8cde-c384a719cc6a" config-ref="Salesforce_Config">
 			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
 			<salesforce:parameters><![CDATA[#[{
-	insertedFileId : vars.contentversionId
+	insertedFileId : vars.contentversionId default ""
 }]]]></salesforce:parameters>
 		</salesforce:query>
 		<ee:transform doc:name="Transform Message" doc:id="2a69992f-554f-4200-aaf7-7c87866a01fc" >
@@ -50,7 +50,7 @@ output application/json
 output application/json
 ---
 {
-	imageUrl: payload.DistributionPublicUrl[0]
+	imageUrl: (payload.DistributionPublicUrl default [])[0] default ""
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
@@ -68,5 +68,107 @@ payload]]></ee:set-payload>
 			</on-error-propagate>
 		</error-handler>
 		
+	</flow>
+	<flow name="sf-system-sapiFlow2" doc:id="NEW-ELEMENT-01">
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<http:listener doc:name="Listener" doc:id="NEW-ELEMENT-02" config-ref="HTTP_Listener_config" path="/api/imageGeneration/query" allowedMethods="POST" outputMimeType="application/json"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<logger level="INFO" doc:name="Logger" doc:id="NEW-ELEMENT-03" message='#["Query request received: " ++ write(payload, "application/json")]'/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<validation:is-true expression="#[sizeOf(payload.contentVersionId default []) &gt; 0 and (payload.contentVersionId[0] default null) != null]" doc:name="Validate ContentVersionId" doc:id="NEW-ELEMENT-04" message="Content Version ID is required to query ContentDistribution"/>
+		<salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
+			<salesforce:parameters><![CDATA[#[{
+	insertedFileId : (payload.contentVersionId default [])[0] default ""
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<ee:transform doc:name="Transform Message" doc:id="NEW-ELEMENT-05" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	imageUrl: (payload.DistributionPublicUrl default [])[0] default ""
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<logger level="INFO" doc:name="Logger" doc:id="NEW-ELEMENT-06" message="Query response: #[payload]"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<error-handler doc:id="NEW-ELEMENT-07">
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate type="VALIDATION:INVALID_BOOLEAN" enableNotifications="true" logException="true" doc:name="Handle Validation Error" doc:id="NEW-ELEMENT-08">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build 400 Response" doc:id="NEW-ELEMENT-09">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+status: "error",
+errorType: "VALIDATION",
+message: error.description default "Content Version ID is required",
+correlationId: correlationId,
+timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate type="SALESFORCE:INVALID_INPUT" enableNotifications="true" logException="true" doc:name="Handle Salesforce Error" doc:id="NEW-ELEMENT-10">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build 400 Response" doc:id="NEW-ELEMENT-11">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+status: "error",
+errorType: "SALESFORCE_INVALID_INPUT",
+message: error.description default "Invalid Salesforce query input",
+correlationId: correlationId,
+timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate type="ANY" enableNotifications="true" logException="true" doc:name="Handle Any Error" doc:id="NEW-ELEMENT-12">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build 500 Response" doc:id="NEW-ELEMENT-13">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+status: "error",
+errorType: error.errorType.identifier default "UNKNOWN",
+message: error.description default "An unexpected error occurred",
+correlationId: correlationId,
+timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+500]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
 	</flow>
 </mule>
