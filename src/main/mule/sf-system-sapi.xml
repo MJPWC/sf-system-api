@@ -11,7 +11,11 @@ http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mu
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
 	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="2d19537c-91fe-4a74-8828-c7e7ccbbd71f" >
-		<salesforce:basic-connection username="praharsh.trailhead@gmail.com" password="Password@14" securityToken="Lh9GfBaZiKin6F070YcorLL8C"/>
+		<salesforce:basic-connection username="${salesforce.username}" password="${salesforce.password}" securityToken="${salesforce.securityToken}">
+			<reconnection>
+				<reconnect-forever frequency="5000"/>
+			</reconnection>
+		</salesforce:basic-connection>
 	</salesforce:sfdc-config>
 	<flow name="sf-system-sapiFlow" doc:id="f7ec0454-05ae-4052-b7b3-20ad8fdc63f4" >
 		<http:listener doc:name="Listener" doc:id="6e321d21-8297-4588-91ca-acf1fcf9480b" config-ref="HTTP_Listener_config" path="/api/imageGeneration" allowedMethods="POST" outputMimeType="application/json"/>
@@ -41,7 +45,7 @@ output application/json
 		<salesforce:query doc:name="Query" doc:id="2d58c189-66c2-42ec-8cde-c384a719cc6a" config-ref="Salesforce_Config">
 			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
 			<salesforce:parameters><![CDATA[#[{
-	insertedFileId : vars.contentversionId
+	insertedFileId : vars.contentversionId default ""
 }]]]></salesforce:parameters>
 		</salesforce:query>
 		<ee:transform doc:name="Transform Message" doc:id="2a69992f-554f-4200-aaf7-7c87866a01fc" >
@@ -50,7 +54,7 @@ output application/json
 output application/json
 ---
 {
-	imageUrl: payload.DistributionPublicUrl[0]
+	imageUrl: (payload.DistributionPublicUrl[0]) default ""
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
