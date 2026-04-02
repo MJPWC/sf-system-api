@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="e6e6e6e6-e6e6-e6e6-e6e6-e6e6e6e6e6e6" >
+  <http:listener-connection host="0.0.0.0" port="8081" />
+</http:listener-config>
+<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1" >
+  <salesforce:basic-connection username="${sf.username}" password="${sf.password}" securityToken="${sf.securityToken}" />
+</salesforce:sfdc-config>
+<flow name="sf-system-sapiFlow" doc:id="b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2" >
+  <http:listener doc:name="Listener" doc:id="c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3" config-ref="HTTP_Listener_config" path="/api/imageGeneration/create"/>
+  <ee:transform doc:name="Transform Message" doc:id="d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4" >
+  <ee:message >
+    <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+Title: payload.title default "Untitled",
+PathOnClient: payload.pathOnClient default "default.jpg",
+VersionData: payload.versionData default ""
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+  <salesforce:create type="ContentVersion" doc:name="Create" doc:id="e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5" config-ref="Salesforce_Config"/>
+  <ee:transform doc:name="Transform Message" doc:id="f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6" >
+  <ee:message >
+    <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+contentVersionId: (payload.items default []) map ((item, index) -> item.id default "")
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+</flow>
+<flow name="sf-system-sapiFlow2" doc:id="g7g7g7g7-g7g7-g7g7-g7g7-g7g7g7g7g7g7" >
+  <http:listener doc:name="Listener" doc:id="h8h8h8h8-h8h8-h8h8-h8h8-h8h8h8h8h8h8" config-ref="HTTP_Listener_config" path="/api/imageGeneration/query"/>
+  <ee:transform doc:name="Transform Message" doc:id="i9i9i9i9-i9i9-i9i9-i9i9-i9i9i9i9i9i9" >
+  <ee:message >
+    <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+Name: "AllUsers",
+PreferencesAllowViewInBrowser: true,
+ContentVersionId: (payload.contentVersionId default [])[0] default ""
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+  <salesforce:create type="ContentDistribution" doc:name="Create" doc:id="j0j0j0j0-j0j0-j0j0-j0j0-j0j0j0j0j0j0" config-ref="Salesforce_Config"/>
+  <salesforce:query doc:name="Query" doc:id="0971d651-8d62-4227-a465-459237d002e6" config-ref="Salesforce_Config">
+  <salesforce:salesforce-query ><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = '#[((payload.items default [])[0] default {}).id default ""]']]></salesforce:salesforce-query>
+    </salesforce:query>
+  <ee:transform doc:name="Transform Message" doc:id="k1k1k1k1-k1k1-k1k1-k1k1-k1k1k1k1k1k1" >
+  <ee:message >
+    <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+DistributionPublicUrl: (payload default [])[0].DistributionPublicUrl default ""
+}]]></ee:set-payload>
+  </ee:message>
+  </ee:transform>
+  <error-handler >
+  <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="l2l2l2l2-l2l2-l2l2-l2l2-l2l2l2l2l2l2" type="ANY">
+    <ee:transform doc:name="Transform Message" doc:id="m3m3m3m3-m3m3-m3m3-m3m3-m3m3m3m3m3m3" >
+    <ee:message >
+      <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+status: "error",
+errorType: error.errorType.identifier default "UNKNOWN",
+message: error.description default "An error occurred",
+correlationId: correlationId,
+timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+    </ee:message>
+    </ee:transform>
+  </on-error-propagate>
+  </error-handler>
+</flow>
+</mule>
