@@ -69,4 +69,85 @@ payload]]></ee:set-payload>
 		</error-handler>
 		
 	</flow>
+	<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+	<flow name="sf-system-sapiFlow2" doc:id="NEW-ELEMENT-01">
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<http:listener doc:name="Listener" doc:id="NEW-ELEMENT-02" config-ref="HTTP_Listener_config" path="/api/imageGeneration/query" allowedMethods="POST" outputMimeType="application/json"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<logger level="INFO" doc:name="Log Incoming Payload" doc:id="NEW-ELEMENT-03" message="#['[' ++ correlationId ++ '] Query request received with payload: ' ++ write(payload, 'application/json')]"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<salesforce:query doc:name="Query" doc:id="NEW-ELEMENT-04" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
+			<salesforce:parameters><![CDATA[#[{
+	insertedFileId : ((payload.contentVersionId default [])[0]) default ""
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<ee:transform doc:name="Transform Message" doc:id="NEW-ELEMENT-05">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	imageUrl: (payload.DistributionPublicUrl default [])[0] default ""
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<logger level="INFO" doc:name="Log Response" doc:id="NEW-ELEMENT-06" message="#['[' ++ correlationId ++ '] Query response: ' ++ write(payload, 'application/json')]"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<error-handler doc:id="NEW-ELEMENT-07">
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Handle Salesforce Invalid Input" doc:id="NEW-ELEMENT-08" type="SALESFORCE:INVALID_INPUT">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build 400 Response" doc:id="NEW-ELEMENT-09">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: "error",
+	errorType: "VALIDATION",
+	message: "Invalid or missing contentVersionId in request payload",
+	detail: error.description default "",
+	correlationId: correlationId,
+	timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Handle Any Error" doc:id="NEW-ELEMENT-10" type="ANY">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build 500 Response" doc:id="NEW-ELEMENT-11">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: "error",
+	errorType: error.errorType.identifier default "UNKNOWN",
+	message: error.description default "An unexpected error occurred",
+	correlationId: correlationId,
+	timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+500]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
 </mule>
