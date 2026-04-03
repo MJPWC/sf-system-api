@@ -25,45 +25,122 @@ payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<salesforce:create doc:id="2bb610f8-e8b6-456c-9f74-e662576141ed" config-ref="Salesforce_Config" type="ContentVersion"/>
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<logger level="INFO" doc:name="Log Salesforce Create Response" doc:id="NEW-ELEMENT-01" message="#['Salesforce create response: ' ++ write(payload, 'application/json')]"/>
 		<ee:transform doc:name="Transform Message" doc:id="5faf2193-5a51-4c0c-b73f-809b8e7a7f20" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 ---
-(payload.items filter (item) -> item.successful) map (item) -> {
-  contentVersionId: item.id
+(payload.items default [] filter (item) -> item.successful default false) map (item) -> {
+contentVersionId: item.id default ""
 }
 ]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="fb1d51a4-f58d-485b-bf36-654817cf8515" message="contentVersionId from SF: #[payload]" />
-		<set-variable value="#[payload.contentVersionId[0]]" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
+		<set-variable value="#[((payload.contentVersionId default [])[0]) default '']" doc:name="Set Variable" doc:id="fb23f824-2e69-4f1c-ba41-1b7d637ade06" variableName="contentversionId" />
+		<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+		<choice doc:name="Validate ContentVersionId" doc:id="NEW-ELEMENT-02">
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<when expression="#[isEmpty(vars.contentversionId)]" doc:id="NEW-ELEMENT-03">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<raise-error type="APP:VALIDATION" description="#['ContentVersionId is empty or null - Salesforce ContentVersion creation may have failed']" doc:name="Raise Validation Error" doc:id="NEW-ELEMENT-04"/>
+			</when>
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<otherwise doc:id="NEW-ELEMENT-05">
 		<salesforce:query doc:name="Query" doc:id="2d58c189-66c2-42ec-8cde-c384a719cc6a" config-ref="Salesforce_Config">
 			<salesforce:salesforce-query><![CDATA[SELECT Id, DistributionPublicUrl, Name, ContentDownloadUrl FROM ContentDistribution WHERE ContentVersionID = ':insertedFileId']]></salesforce:salesforce-query>
 			<salesforce:parameters><![CDATA[#[{
-	insertedFileId : vars.contentversionId
+	insertedFileId : vars.contentversionId default ""
 }]]]></salesforce:parameters>
 		</salesforce:query>
 		<ee:transform doc:name="Transform Message" doc:id="2a69992f-554f-4200-aaf7-7c87866a01fc" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 ---
 {
-	imageUrl: payload.DistributionPublicUrl[0]
+	imageUrl: ((payload.DistributionPublicUrl default [])[0]) default ""
 }]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
+					</ee:message>
+				</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="c25d2a6e-2d80-436a-abde-f41ca328324c" message="Response from the Query component. #[payload]"/>
+			</otherwise>
+		</choice>
 		<error-handler>
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Handle Validation Error" doc:id="NEW-ELEMENT-06" type="APP:VALIDATION">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build 400 Response" doc:id="NEW-ELEMENT-07">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: "error",
+	errorType: "VALIDATION",
+	message: error.description default "Validation failed",
+	correlationId: correlationId,
+	timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Handle Salesforce Errors" doc:id="NEW-ELEMENT-08" type="SALESFORCE:INVALID_INPUT, SALESFORCE:CONNECTIVITY">
+				<!-- REPLACE doc:id with a unique UUID before importing into Anypoint Studio -->
+				<ee:transform doc:name="Build Salesforce Error Response" doc:id="NEW-ELEMENT-09">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: "error",
+	errorType: error.errorType.identifier default "SALESFORCE_ERROR",
+	message: error.description default "Salesforce operation failed",
+	correlationId: correlationId,
+	timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/java
+---
+error.errorType.identifier match {
+	case "SALESFORCE:INVALID_INPUT" -> 400
+	case "SALESFORCE:CONNECTIVITY" -> 503
+	else -> 500
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
 			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a1c0721d-44bc-41df-87a6-097d2dc2efb4" type="ANY">
 				<ee:transform doc:name="Transform Message" doc:id="61722124-8727-4f86-b1bc-027446c458cd" >
 					<ee:message >
 						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: "error",
+	errorType: error.errorType.identifier default "UNKNOWN",
+	message: error.description default "An unexpected error occurred",
+	correlationId: correlationId,
+	timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
 output application/java
 ---
-payload]]></ee:set-payload>
-					</ee:message>
+500]]></ee:set-variable>
+					</ee:variables>
 				</ee:transform>
 			</on-error-propagate>
 		</error-handler>
